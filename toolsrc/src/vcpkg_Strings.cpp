@@ -1,20 +1,15 @@
 #include "pch.h"
+
 #include "vcpkg_Strings.h"
 #include "vcpkg_Util.h"
 
 namespace vcpkg::Strings::details
 {
     // To disambiguate between two overloads
-    static const auto isspace = [](const char c)
-    {
-        return std::isspace(c);
-    };
+    static const auto isspace = [](const char c) { return std::isspace(c); };
 
     // Avoids C4244 warnings because of char<->int conversion that occur when using std::tolower()
-    static char tolower_char(const char c)
-    {
-        return static_cast<char>(std::tolower(c));
-    }
+    static char tolower_char(const char c) { return static_cast<char>(std::tolower(c)); }
 
     static _locale_t& c_locale()
     {
@@ -51,13 +46,13 @@ namespace vcpkg::Strings::details
 
 namespace vcpkg::Strings
 {
-    std::wstring utf8_to_utf16(const CStringView s)
+    std::wstring to_utf16(const CStringView s)
     {
         std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t> conversion;
         return conversion.from_bytes(s);
     }
 
-    std::string utf16_to_utf8(const CWStringView w)
+    std::string to_utf8(const CWStringView w)
     {
         std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t> conversion;
         return conversion.to_bytes(w);
@@ -66,10 +61,21 @@ namespace vcpkg::Strings
     std::string::const_iterator case_insensitive_ascii_find(const std::string& s, const std::string& pattern)
     {
         const std::string pattern_as_lower_case(ascii_to_lowercase(pattern));
-        return search(s.begin(), s.end(), pattern_as_lower_case.begin(), pattern_as_lower_case.end(), [](const char a, const char b)
-                      {
-                          return details::tolower_char(a) == b;
-                      });
+        return search(s.begin(),
+                      s.end(),
+                      pattern_as_lower_case.begin(),
+                      pattern_as_lower_case.end(),
+                      [](const char a, const char b) { return details::tolower_char(a) == b; });
+    }
+
+    bool case_insensitive_ascii_contains(const std::string& s, const std::string& pattern)
+    {
+        return case_insensitive_ascii_find(s, pattern) != s.end();
+    }
+
+    int case_insensitive_ascii_compare(const CStringView left, const CStringView right)
+    {
+        return _stricmp(left, right);
     }
 
     std::string ascii_to_lowercase(const std::string& input)

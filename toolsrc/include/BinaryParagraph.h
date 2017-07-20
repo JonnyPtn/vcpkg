@@ -1,11 +1,14 @@
 #pragma once
 
-#include <unordered_map>
-#include "SourceParagraph.h"
 #include "PackageSpec.h"
+#include "SourceParagraph.h"
+#include <unordered_map>
 
 namespace vcpkg
 {
+    /// <summary>
+    /// Built package metadata
+    /// </summary>
     struct BinaryParagraph
     {
         BinaryParagraph();

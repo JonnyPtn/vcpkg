@@ -1,10 +1,10 @@
 #pragma once
-#include "filesystem_fs.h"
-#include "vcpkg_expected.h"
-#include "PackageSpec.h"
 #include "BinaryParagraph.h"
 #include "Lazy.h"
+#include "PackageSpec.h"
+#include "filesystem_fs.h"
 #include "vcpkg_Files.h"
+#include "vcpkg_expected.h"
 
 namespace vcpkg
 {
@@ -48,7 +48,12 @@ namespace vcpkg
         const fs::path& get_cmake_exe() const;
         const fs::path& get_git_exe() const;
         const fs::path& get_nuget_exe() const;
-        const Toolset& get_toolset() const;
+
+        /// <summary>Retrieve a toolset matching a VS version</summary>
+        /// <remarks>
+        ///   Valid version strings are "v140", "v141", and "". Empty string gets the latest.
+        /// </remarks>
+        const Toolset& get_toolset(const std::string& toolset_version) const;
 
         Files::Filesystem& get_filesystem() const;
 
@@ -56,6 +61,6 @@ namespace vcpkg
         Lazy<fs::path> cmake_exe;
         Lazy<fs::path> git_exe;
         Lazy<fs::path> nuget_exe;
-        Lazy<Toolset> toolset;
+        Lazy<std::vector<Toolset>> toolsets;
     };
 }

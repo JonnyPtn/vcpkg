@@ -1,7 +1,7 @@
 #pragma once
 
-#include <unordered_map>
 #include "BinaryParagraph.h"
+#include <unordered_map>
 
 namespace vcpkg
 {
@@ -23,10 +23,13 @@ namespace vcpkg
         PURGE
     };
 
+    /// <summary>
+    /// Installed package metadata
+    /// </summary>
     struct StatusParagraph
     {
         StatusParagraph();
-        explicit StatusParagraph(const std::unordered_map<std::string, std::string>& fields);
+        explicit StatusParagraph(std::unordered_map<std::string, std::string>&& fields);
 
         BinaryParagraph package;
         Want want;

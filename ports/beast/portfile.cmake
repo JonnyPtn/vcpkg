@@ -1,12 +1,13 @@
 # header only
 include(vcpkg_common_functions)
-set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/beast-1.0.0-b30)
-vcpkg_download_distfile(ARCHIVE
-    URLS "https://github.com/vinniefalco/Beast/archive/v1.0.0-b30.zip"
-    FILENAME "beast-1.0.0-b30.zip"
-    SHA512 af801748efabafef1b7ae817be9da9480dcf881b3037f92e5997e42255399bd7b22772bb2a5c9aab7d01c31c7995c4d23a41f4b7f6ccdef18d9a8a15906fd43f
+
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO vinniefalco/Beast
+    REF 1bc30cb6e4ce0fd2e288b2cd74d18f857801cbc7
+    SHA512 c3d6b99273c2b2acdd366547119e78c25f788dabfae11f533aea8d31d03383b46516398370103b01e3b9bb0bb3921c981299cd3591107845630181b48e3b010e
+    HEAD_REF master
 )
-vcpkg_extract_source_archive(${ARCHIVE})
 
 file(INSTALL ${SOURCE_PATH}/include/ DESTINATION ${CURRENT_PACKAGES_DIR}/include)
 file(INSTALL ${SOURCE_PATH}/LICENSE_1_0.txt DESTINATION ${CURRENT_PACKAGES_DIR}/share/beast RENAME copyright)

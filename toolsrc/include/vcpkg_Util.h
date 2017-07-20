@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace vcpkg::Util
 {
@@ -34,6 +34,12 @@ namespace vcpkg::Util
         cont.erase(std::remove_if(cont.begin(), cont.end(), pred), cont.end());
     }
 
+    template<class Container, class V>
+    auto find(const Container& cont, V&& v)
+    {
+        return std::find(cont.cbegin(), cont.cend(), v);
+    }
+
     template<class Container, class Pred>
     auto find_if(const Container& cont, Pred pred)
     {
@@ -47,7 +53,7 @@ namespace vcpkg::Util
     }
 
     template<class K, class V, class Container, class Func>
-     void group_by(const Container& cont, std::map<K, std::vector<const V*>>* output, Func f)
+    void group_by(const Container& cont, std::map<K, std::vector<const V*>>* output, Func f)
     {
         for (const V& element : cont)
         {

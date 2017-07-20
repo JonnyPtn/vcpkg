@@ -1,6 +1,8 @@
 #include "pch.h"
+
 #include "vcpkg_Files.h"
 #include "vcpkg_System.h"
+#include <thread>
 
 namespace vcpkg::Files
 {
@@ -13,7 +15,7 @@ namespace vcpkg::Files
             std::fstream file_stream(file_path, std::ios_base::in | std::ios_base::binary);
             if (file_stream.fail())
             {
-                return std::errc::no_such_file_or_directory;
+                return std::make_error_code(std::errc::no_such_file_or_directory);
             }
 
             file_stream.seekg(0, file_stream.end);
@@ -22,7 +24,7 @@ namespace vcpkg::Files
 
             if (length > SIZE_MAX)
             {
-                return std::errc::file_too_large;
+                return std::make_error_code(std::errc::file_too_large);
             }
 
             std::string output;
@@ -37,7 +39,7 @@ namespace vcpkg::Files
             std::fstream file_stream(file_path, std::ios_base::in | std::ios_base::binary);
             if (file_stream.fail())
             {
-                return std::errc::no_such_file_or_directory;
+                return std::make_error_code(std::errc::no_such_file_or_directory);
             }
 
             std::vector<std::string> output;
@@ -50,7 +52,8 @@ namespace vcpkg::Files
 
             return std::move(output);
         }
-        virtual fs::path find_file_recursively_up(const fs::path & starting_dir, const std::string & filename) const override
+        virtual fs::path find_file_recursively_up(const fs::path& starting_dir,
+                                                  const std::string& filename) const override
         {
             fs::path current_dir = starting_dir;
             for (; !current_dir.empty(); current_dir = current_dir.parent_path())
@@ -65,7 +68,7 @@ namespace vcpkg::Files
             return current_dir;
         }
 
-        virtual std::vector<fs::path> get_files_recursive(const fs::path & dir) const override
+        virtual std::vector<fs::path> get_files_recursive(const fs::path& dir) const override
         {
             std::vector<fs::path> ret;
 
@@ -78,7 +81,7 @@ namespace vcpkg::Files
             return ret;
         }
 
-        virtual std::vector<fs::path> get_files_non_recursive(const fs::path & dir) const override
+        virtual std::vector<fs::path> get_files_non_recursive(const fs::path& dir) const override
         {
             std::vector<fs::path> ret;
 
@@ -91,7 +94,7 @@ namespace vcpkg::Files
             return ret;
         }
 
-        virtual void write_lines(const fs::path & file_path, const std::vector<std::string>& lines) override
+        virtual void write_lines(const fs::path& file_path, const std::vector<std::string>& lines) override
         {
             std::fstream output(file_path, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
             for (const std::string& line : lines)
@@ -101,47 +104,54 @@ namespace vcpkg::Files
             output.close();
         }
 
-        virtual void rename(const fs::path & oldpath, const fs::path & newpath) override
+        virtual void rename(const fs::path& oldpath, const fs::path& newpath) override
         {
             fs::stdfs::rename(oldpath, newpath);
         }
-        virtual bool remove(const fs::path & path) override
+        virtual bool remove(const fs::path& path) override { return fs::stdfs::remove(path); }
+        virtual bool remove(const fs::path& path, std::error_code& ec) override { return fs::stdfs::remove(path, ec); }
+        virtual std::uintmax_t remove_all(const fs::path& path, std::error_code& ec) override
         {
-            return fs::stdfs::remove(path);
+            // Working around the currently buggy remove_all()
+            std::uintmax_t out = fs::stdfs::remove_all(path, ec);
+
+            for (int i = 0; i < 5 && this->exists(path); i++)
+            {
+                using namespace std::chrono_literals;
+                std::this_thread::sleep_for(i * 100ms);
+                out += fs::stdfs::remove_all(path, ec);
+            }
+
+            if (this->exists(path))
+            {
+                System::println(System::Color::warning,
+                                "Some files in %s were unable to be removed. Close any editors operating in this "
+                                "directory and retry.",
+                                path.string());
+            }
+
+            return out;
         }
-        virtual bool remove(const fs::path & path, std::error_code& ec) override
-        {
-            return fs::stdfs::remove(path, ec);
-        }
-        virtual std::uintmax_t remove_all(const fs::path & path, std::error_code& ec) override
-        {
-            return fs::stdfs::remove_all(path, ec);
-        }
-        virtual bool exists(const fs::path & path) const override
-        {
-            return fs::stdfs::exists(path);
-        }
-        virtual bool is_directory(const fs::path & path) const override
-        {
-            return fs::stdfs::is_directory(path);
-        }
-        virtual bool is_regular_file(const fs::path & path) const override
-        {
-            return fs::stdfs::is_regular_file(path);
-        }
-        virtual bool is_empty(const fs::path & path) const override
-        {
-            return fs::stdfs::is_empty(path);
-        }
-        virtual bool create_directory(const fs::path & path, std::error_code & ec) override
+        virtual bool exists(const fs::path& path) const override { return fs::stdfs::exists(path); }
+        virtual bool is_directory(const fs::path& path) const override { return fs::stdfs::is_directory(path); }
+        virtual bool is_regular_file(const fs::path& path) const override { return fs::stdfs::is_regular_file(path); }
+        virtual bool is_empty(const fs::path& path) const override { return fs::stdfs::is_empty(path); }
+        virtual bool create_directory(const fs::path& path, std::error_code& ec) override
         {
             return fs::stdfs::create_directory(path, ec);
         }
-        virtual void copy(const fs::path & oldpath, const fs::path & newpath, fs::copy_options opts) override
+        virtual bool create_directories(const fs::path& path, std::error_code& ec) override
+        {
+            return fs::stdfs::create_directories(path, ec);
+        }
+        virtual void copy(const fs::path& oldpath, const fs::path& newpath, fs::copy_options opts) override
         {
             fs::stdfs::copy(oldpath, newpath, opts);
         }
-        virtual bool copy_file(const fs::path & oldpath, const fs::path & newpath, fs::copy_options opts, std::error_code & ec) override
+        virtual bool copy_file(const fs::path& oldpath,
+                               const fs::path& newpath,
+                               fs::copy_options opts,
+                               std::error_code& ec) override
         {
             return fs::stdfs::copy_file(oldpath, newpath, opts, ec);
         }
@@ -154,7 +164,8 @@ namespace vcpkg::Files
         {
             FILE* f = nullptr;
             auto ec = _wfopen_s(&f, file_path.native().c_str(), L"wb");
-            Checks::check_exit(VCPKG_LINE_INFO, ec == 0);
+            Checks::check_exit(
+                VCPKG_LINE_INFO, ec == 0, "Error: Could not open file for writing: %s", file_path.u8string().c_str());
             auto count = fwrite(data.data(), sizeof(data[0]), data.size(), f);
             fclose(f);
 
@@ -162,7 +173,7 @@ namespace vcpkg::Files
         }
     };
 
-    Filesystem & get_real_filesystem()
+    Filesystem& get_real_filesystem()
     {
         static RealFilesystem real_fs;
         return real_fs;

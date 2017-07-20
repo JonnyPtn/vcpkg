@@ -1,4 +1,5 @@
 #include "pch.h"
+
 #include "vcpkg_Commands.h"
 #include "vcpkg_System.h"
 
@@ -27,6 +28,7 @@ namespace vcpkg::Commands::Help
             "\n"
             "%s" // Integration help
             "\n"
+            "  vcpkg export <pkg>... [opt]...  Exports a package\n"
             "  vcpkg edit <pkg>                Open up a port for editing (uses %%EDITOR%%, default 'code')\n"
             "  vcpkg import <pkg>              Import a pre-built library\n"
             "  vcpkg create <pkg> <url>\n"
@@ -47,14 +49,15 @@ namespace vcpkg::Commands::Help
             "  --vcpkg-root <path>             Specify the vcpkg root directory\n"
             "                                  (default: %%VCPKG_ROOT%%)\n"
             "\n"
-            "For more help (including examples) see the accompanying README.md."
-            , Integrate::INTEGRATE_COMMAND_HELPSTRING);
+            "For more help (including examples) see the accompanying README.md.",
+            Integrate::INTEGRATE_COMMAND_HELPSTRING);
     }
 
     std::string create_example_string(const std::string& command_and_arguments)
     {
         std::string cs = Strings::format("Example:\n"
-                                         "  vcpkg %s", command_and_arguments);
+                                         "  vcpkg %s\n",
+                                         command_and_arguments);
         return cs;
     }
 

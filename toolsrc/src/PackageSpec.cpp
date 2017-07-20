@@ -1,15 +1,14 @@
 #include "pch.h"
+
 #include "PackageSpec.h"
 #include "vcpkg_Util.h"
 
 namespace vcpkg
 {
-    static bool is_valid_package_spec_char(char c)
-    {
-        return (c == '-') || isdigit(c) || (isalpha(c) && islower(c));
-    }
+    static bool is_valid_package_spec_char(char c) { return (c == '-') || isdigit(c) || (isalpha(c) && islower(c)); }
 
-    Expected<PackageSpec> PackageSpec::from_string(const std::string& spec_as_string, const Triplet& default_triplet)
+    ExpectedT<PackageSpec, PackageSpecParseResult> PackageSpec::from_string(const std::string& spec_as_string,
+                                                                            const Triplet& default_triplet)
     {
         auto pos = spec_as_string.find(':');
         if (pos == std::string::npos)
@@ -20,7 +19,7 @@ namespace vcpkg
         auto pos2 = spec_as_string.find(':', pos + 1);
         if (pos2 != std::string::npos)
         {
-            return std::error_code(PackageSpecParseResult::TOO_MANY_COLONS);
+            return PackageSpecParseResult::TOO_MANY_COLONS;
         }
 
         const std::string name = spec_as_string.substr(0, pos);
@@ -28,11 +27,12 @@ namespace vcpkg
         return from_name_and_triplet(name, triplet);
     }
 
-    Expected<PackageSpec> PackageSpec::from_name_and_triplet(const std::string& name, const Triplet& triplet)
+    ExpectedT<PackageSpec, PackageSpecParseResult> PackageSpec::from_name_and_triplet(const std::string& name,
+                                                                                      const Triplet& triplet)
     {
         if (Util::find_if_not(name, is_valid_package_spec_char) != name.end())
         {
-            return std::error_code(PackageSpecParseResult::INVALID_CHARACTERS);
+            return PackageSpecParseResult::INVALID_CHARACTERS;
         }
 
         PackageSpec p;
@@ -41,33 +41,22 @@ namespace vcpkg
         return p;
     }
 
-    const std::string& PackageSpec::name() const
-    {
-        return this->m_name;
-    }
+    const std::string& PackageSpec::name() const { return this->m_name; }
 
-    const Triplet& PackageSpec::triplet() const
-    {
-        return this->m_triplet;
-    }
+    const Triplet& PackageSpec::triplet() const { return this->m_triplet; }
 
-    std::string PackageSpec::dir() const
-    {
-        return Strings::format("%s_%s", this->m_name, this->m_triplet);
-    }
+    std::string PackageSpec::dir() const { return Strings::format("%s_%s", this->m_name, this->m_triplet); }
 
-    std::string PackageSpec::to_string() const
+    std::string PackageSpec::to_string(const std::string& name, const Triplet& triplet)
     {
-        return Strings::format("%s:%s", this->name(), this->triplet());
+        return Strings::format("%s:%s", name, triplet);
     }
+    std::string PackageSpec::to_string() const { return to_string(this->name(), this->triplet()); }
 
     bool operator==(const PackageSpec& left, const PackageSpec& right)
     {
         return left.name() == right.name() && left.triplet() == right.triplet();
     }
 
-    bool operator!=(const PackageSpec& left, const PackageSpec& right)
-    {
-        return !(left == right);
-    }
+    bool operator!=(const PackageSpec& left, const PackageSpec& right) { return !(left == right); }
 }

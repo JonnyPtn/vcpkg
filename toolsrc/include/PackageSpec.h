@@ -7,9 +7,11 @@ namespace vcpkg
 {
     struct PackageSpec
     {
-        static Expected<PackageSpec> from_string(const std::string& spec_as_string, const Triplet& default_triplet);
-
-        static Expected<PackageSpec> from_name_and_triplet(const std::string& name, const Triplet& triplet);
+        static ExpectedT<PackageSpec, PackageSpecParseResult> from_string(const std::string& spec_as_string,
+                                                                          const Triplet& default_triplet);
+        static std::string to_string(const std::string& name, const Triplet& triplet);
+        static ExpectedT<PackageSpec, PackageSpecParseResult> from_name_and_triplet(const std::string& name,
+                                                                                    const Triplet& triplet);
 
         const std::string& name() const;
 
@@ -24,30 +26,30 @@ namespace vcpkg
         Triplet m_triplet;
     };
 
+    struct FullPackageSpec
+    {
+        PackageSpec package_spec;
+        std::vector<std::string> features;
+    };
+
     bool operator==(const PackageSpec& left, const PackageSpec& right);
     bool operator!=(const PackageSpec& left, const PackageSpec& right);
-} //namespace vcpkg
+}
 
-namespace std
+template<>
+struct std::hash<vcpkg::PackageSpec>
 {
-    template <>
-    struct hash<vcpkg::PackageSpec>
+    size_t operator()(const vcpkg::PackageSpec& value) const
     {
-        size_t operator()(const vcpkg::PackageSpec& value) const
-        {
-            size_t hash = 17;
-            hash = hash * 31 + std::hash<std::string>()(value.name());
-            hash = hash * 31 + std::hash<vcpkg::Triplet>()(value.triplet());
-            return hash;
-        }
-    };
+        size_t hash = 17;
+        hash = hash * 31 + std::hash<std::string>()(value.name());
+        hash = hash * 31 + std::hash<vcpkg::Triplet>()(value.triplet());
+        return hash;
+    }
+};
 
-    template <>
-    struct equal_to<vcpkg::PackageSpec>
-    {
-        bool operator()(const vcpkg::PackageSpec& left, const vcpkg::PackageSpec& right) const
-        {
-            return left == right;
-        }
-    };
-} // namespace std
+template<>
+struct std::equal_to<vcpkg::PackageSpec>
+{
+    bool operator()(const vcpkg::PackageSpec& left, const vcpkg::PackageSpec& right) const { return left == right; }
+};
