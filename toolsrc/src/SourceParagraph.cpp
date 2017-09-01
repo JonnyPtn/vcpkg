@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "PackageSpec.h"
 #include "SourceParagraph.h"
 #include "Triplet.h"
 #include "vcpkg_Checks.h"
@@ -12,7 +13,6 @@ namespace vcpkg
 {
     using namespace vcpkg::Parse;
 
-    bool g_feature_packages = false;
     namespace Fields
     {
         static const std::string BUILD_DEPENDS = "Build-Depends";
@@ -28,7 +28,11 @@ namespace vcpkg
     static span<const std::string> get_list_of_valid_fields()
     {
         static const std::string valid_fields[] = {
-            Fields::SOURCE, Fields::VERSION, Fields::DESCRIPTION, Fields::MAINTAINER, Fields::BUILD_DEPENDS,
+            Fields::SOURCE,
+            Fields::VERSION,
+            Fields::DESCRIPTION,
+            Fields::MAINTAINER,
+            Fields::BUILD_DEPENDS,
         };
 
         return valid_fields;
@@ -54,7 +58,7 @@ namespace vcpkg
             if (!error_info->extra_fields.empty())
             {
                 System::println(System::Color::error,
-                                "Error: There are invalid fields in the Source Paragraph of %s",
+                                "Error: There are invalid fields in the control file of %s",
                                 error_info->name);
                 System::println("The following fields were not expected:\n\n    %s\n",
                                 Strings::join("\n    ", error_info->extra_fields));
@@ -74,7 +78,7 @@ namespace vcpkg
             if (!error_info->missing_fields.empty())
             {
                 System::println(System::Color::error,
-                                "Error: There are missing fields in the Source Paragraphs of %s",
+                                "Error: There are missing fields in the control file of %s",
                                 error_info->name);
                 System::println("The following fields were missing:\n\n    %s\n",
                                 Strings::join("\n    ", error_info->missing_fields));
@@ -152,55 +156,50 @@ namespace vcpkg
         return std::move(control_file);
     }
 
+    Dependency Dependency::parse_dependency(std::string name, std::string qualifier)
+    {
+        Dependency dep;
+        dep.qualifier = qualifier;
+        if (auto maybe_features = Features::from_string(name))
+            dep.depend = *maybe_features.get();
+        else
+            Checks::exit_with_message(
+                VCPKG_LINE_INFO, "error while parsing dependency: %s: %s", to_string(maybe_features.error()), name);
+        return dep;
+    }
+
+    std::string Dependency::name() const
+    {
+        std::string str = this->depend.name;
+        if (this->depend.features.empty()) return str;
+
+        str += "[";
+        for (auto&& s : this->depend.features)
+        {
+            str += s + ",";
+        }
+        str.pop_back();
+        str += "]";
+        return str;
+    }
+
     std::vector<Dependency> vcpkg::expand_qualified_dependencies(const std::vector<std::string>& depends)
     {
         return Util::fmap(depends, [&](const std::string& depend_string) -> Dependency {
             auto pos = depend_string.find(' ');
-            if (pos == std::string::npos) return {depend_string, ""};
+            if (pos == std::string::npos) return Dependency::parse_dependency(depend_string, Strings::EMPTY);
             // expect of the form "\w+ \[\w+\]"
             Dependency dep;
-            dep.name = depend_string.substr(0, pos);
-            if (depend_string.c_str()[pos + 1] != '[' || depend_string[depend_string.size() - 1] != ']')
+
+            dep.depend.name = depend_string.substr(0, pos);
+            if (depend_string.c_str()[pos + 1] != '(' || depend_string[depend_string.size() - 1] != ')')
             {
                 // Error, but for now just slurp the entire string.
-                return {depend_string, ""};
+                return Dependency::parse_dependency(depend_string, Strings::EMPTY);
             }
             dep.qualifier = depend_string.substr(pos + 2, depend_string.size() - pos - 3);
             return dep;
         });
-    }
-
-    std::vector<std::string> parse_comma_list(const std::string& str)
-    {
-        if (str.empty())
-        {
-            return {};
-        }
-
-        std::vector<std::string> out;
-
-        size_t cur = 0;
-        do
-        {
-            auto pos = str.find(',', cur);
-            if (pos == std::string::npos)
-            {
-                out.push_back(str.substr(cur));
-                break;
-            }
-            out.push_back(str.substr(cur, pos - cur));
-
-            // skip comma and space
-            ++pos;
-            if (str[pos] == ' ')
-            {
-                ++pos;
-            }
-
-            cur = pos;
-        } while (cur != std::string::npos);
-
-        return out;
     }
 
     std::vector<std::string> filter_dependencies(const std::vector<vcpkg::Dependency>& deps, const Triplet& t)
@@ -210,13 +209,22 @@ namespace vcpkg
         {
             if (dep.qualifier.empty() || t.canonical_name().find(dep.qualifier) != std::string::npos)
             {
-                ret.push_back(dep.name);
+                ret.emplace_back(dep.name());
             }
         }
         return ret;
     }
 
-    const std::string& to_string(const Dependency& dep) { return dep.name; }
+    std::vector<FeatureSpec> filter_dependencies_to_specs(const std::vector<Dependency>& deps, const Triplet& t)
+    {
+        return FeatureSpec::from_strings_and_triplet(filter_dependencies(deps, t), t);
+    }
+
+    const std::string to_string(const Dependency& dep)
+    {
+        std::string name = dep.name();
+        return name;
+    }
 
     ExpectedT<Supports, std::vector<std::string>> Supports::parse(const std::vector<std::string>& strs)
     {

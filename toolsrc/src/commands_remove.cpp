@@ -14,16 +14,22 @@ namespace vcpkg::Commands::Remove
     using Dependencies::RequestType;
     using Update::OutdatedPackage;
 
-    static void remove_package(const VcpkgPaths& paths, const PackageSpec& spec, StatusParagraphs* status_db)
+    void remove_package(const VcpkgPaths& paths, const PackageSpec& spec, StatusParagraphs* status_db)
     {
         auto& fs = paths.get_filesystem();
-        StatusParagraph& pkg = **status_db->find(spec.name(), spec.triplet());
+        auto spghs = status_db->find_all(spec.name(), spec.triplet());
+        auto core_pkg = **status_db->find(spec.name(), spec.triplet(), Strings::EMPTY);
 
-        pkg.want = Want::PURGE;
-        pkg.state = InstallState::HALF_INSTALLED;
-        write_update(paths, pkg);
+        for (auto&& spgh : spghs)
+        {
+            StatusParagraph& pkg = **spgh;
+            if (pkg.state != InstallState::INSTALLED) continue;
+            pkg.want = Want::PURGE;
+            pkg.state = InstallState::HALF_INSTALLED;
+            write_update(paths, pkg);
+        }
 
-        auto maybe_lines = fs.read_lines(paths.listfile_path(pkg.package));
+        auto maybe_lines = fs.read_lines(paths.listfile_path(core_pkg.package));
 
         if (auto lines = maybe_lines.get())
         {
@@ -80,11 +86,16 @@ namespace vcpkg::Commands::Remove
                 }
             }
 
-            fs.remove(paths.listfile_path(pkg.package));
+            fs.remove(paths.listfile_path(core_pkg.package));
         }
 
-        pkg.state = InstallState::NOT_INSTALLED;
-        write_update(paths, pkg);
+        for (auto&& spgh : spghs)
+        {
+            StatusParagraph& pkg = **spgh;
+            if (pkg.state != InstallState::HALF_INSTALLED) continue;
+            pkg.state = InstallState::NOT_INSTALLED;
+            write_update(paths, pkg);
+        }
     }
 
     static void print_plan(const std::map<RemovePlanType, std::vector<const RemovePlanAction*>>& group_by_plan_type)
@@ -125,7 +136,7 @@ namespace vcpkg::Commands::Remove
         static const std::string OPTION_RECURSE = "--recurse";
         static const std::string OPTION_DRY_RUN = "--dry-run";
         static const std::string OPTION_OUTDATED = "--outdated";
-        static const std::string example =
+        static const std::string EXAMPLE =
             Commands::Help::create_example_string("remove zlib zlib:x64-windows curl boost");
         const std::unordered_set<std::string> options = args.check_and_get_optional_command_arguments(
             {OPTION_PURGE, OPTION_NO_PURGE, OPTION_RECURSE, OPTION_DRY_RUN, OPTION_OUTDATED});
@@ -134,21 +145,21 @@ namespace vcpkg::Commands::Remove
         std::vector<PackageSpec> specs;
         if (options.find(OPTION_OUTDATED) != options.cend())
         {
-            args.check_exact_arg_count(0, example);
+            args.check_exact_arg_count(0, EXAMPLE);
             specs = Util::fmap(Update::find_outdated_packages(paths, status_db),
                                [](auto&& outdated) { return outdated.spec; });
 
             if (specs.empty())
             {
-                System::println(System::Color::success, "There are no oudated packages.");
+                System::println(System::Color::success, "There are no outdated packages.");
                 Checks::exit_success(VCPKG_LINE_INFO);
             }
         }
         else
         {
-            args.check_min_arg_count(1, example);
+            args.check_min_arg_count(1, EXAMPLE);
             specs = Util::fmap(args.command_arguments, [&](auto&& arg) {
-                return Input::check_and_get_package_spec(arg, default_triplet, example);
+                return Input::check_and_get_package_spec(arg, default_triplet, EXAMPLE);
             });
 
             for (auto&& spec : specs)
@@ -160,7 +171,7 @@ namespace vcpkg::Commands::Remove
         {
             // User specified --purge and --no-purge
             System::println(System::Color::error, "Error: cannot specify both --no-purge and --purge.");
-            System::print(example);
+            System::print(EXAMPLE);
             Checks::exit_fail(VCPKG_LINE_INFO);
         }
         const bool isRecursive = options.find(OPTION_RECURSE) != options.cend();

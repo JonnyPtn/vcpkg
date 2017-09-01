@@ -8,6 +8,8 @@
 
 namespace vcpkg::Metrics
 {
+    Util::LockGuarded<Metrics> g_metrics;
+
     static std::string get_current_date_time()
     {
         struct tm newtime;
@@ -23,7 +25,7 @@ namespace vcpkg::Metrics
         errno_t err = gmtime_s(&newtime, &now);
         if (err)
         {
-            return "";
+            return Strings::EMPTY;
         }
 
         strftime(&date[0], date.size(), "%Y-%m-%dT%H:%M:%S", &newtime);
@@ -123,16 +125,16 @@ namespace vcpkg::Metrics
         path += L"\\kernel32.dll";
 
         auto versz = GetFileVersionInfoSizeW(path.c_str(), nullptr);
-        if (versz == 0) return "";
+        if (versz == 0) return Strings::EMPTY;
 
         std::vector<char> verbuf;
         verbuf.resize(versz);
 
-        if (!GetFileVersionInfoW(path.c_str(), 0, static_cast<DWORD>(verbuf.size()), &verbuf[0])) return "";
+        if (!GetFileVersionInfoW(path.c_str(), 0, static_cast<DWORD>(verbuf.size()), &verbuf[0])) return Strings::EMPTY;
 
         void* rootblock;
         UINT rootblocksize;
-        if (!VerQueryValueW(&verbuf[0], L"\\", &rootblock, &rootblocksize)) return "";
+        if (!VerQueryValueW(&verbuf[0], L"\\", &rootblock, &rootblocksize)) return Strings::EMPTY;
 
         auto rootblock_ffi = static_cast<VS_FIXEDFILEINFO*>(rootblock);
 
@@ -223,25 +225,25 @@ namespace vcpkg::Metrics
         return hkcu_sqmclient.value_or(L"{}");
     }
 
-    void set_user_information(const std::string& user_id, const std::string& first_use_time)
+    void Metrics::set_user_information(const std::string& user_id, const std::string& first_use_time)
     {
         g_metricmessage.user_id = user_id;
         g_metricmessage.user_timestamp = first_use_time;
     }
 
-    void init_user_information(std::string& user_id, std::string& first_use_time)
+    void Metrics::init_user_information(std::string& user_id, std::string& first_use_time)
     {
         user_id = generate_random_UUID();
         first_use_time = get_current_date_time();
     }
 
-    void set_send_metrics(bool should_send_metrics) { g_should_send_metrics = should_send_metrics; }
+    void Metrics::set_send_metrics(bool should_send_metrics) { g_should_send_metrics = should_send_metrics; }
 
-    void set_print_metrics(bool should_print_metrics) { g_should_print_metrics = should_print_metrics; }
+    void Metrics::set_print_metrics(bool should_print_metrics) { g_should_print_metrics = should_print_metrics; }
 
-    void track_metric(const std::string& name, double value) { g_metricmessage.TrackMetric(name, value); }
+    void Metrics::track_metric(const std::string& name, double value) { g_metricmessage.TrackMetric(name, value); }
 
-    void track_property(const std::string& name, const std::wstring& value)
+    void Metrics::track_property(const std::string& name, const std::wstring& value)
     {
         // Note: this is not valid UTF-16 -> UTF-8, it just yields a close enough approximation for our purposes.
         std::string converted_value;
@@ -252,12 +254,12 @@ namespace vcpkg::Metrics
         g_metricmessage.TrackProperty(name, converted_value);
     }
 
-    void track_property(const std::string& name, const std::string& value)
+    void Metrics::track_property(const std::string& name, const std::string& value)
     {
         g_metricmessage.TrackProperty(name, value);
     }
 
-    void upload(const std::string& payload)
+    void Metrics::upload(const std::string& payload)
     {
         HINTERNET hSession = nullptr, hConnect = nullptr, hRequest = nullptr;
         BOOL bResults = FALSE;
@@ -349,7 +351,7 @@ namespace vcpkg::Metrics
         return fs::path(buf, buf + bytes);
     }
 
-    void flush()
+    void Metrics::flush()
     {
         std::string payload = g_metricmessage.format_event_data_template();
         if (g_should_print_metrics) std::cerr << payload << "\n";
@@ -375,7 +377,7 @@ namespace vcpkg::Metrics
                 path = vcpkgdir / "scripts" / "vcpkgmetricsuploader.exe";
                 if (fs.exists(path)) return path;
 
-                return L"";
+                return Strings::WEMPTY;
             }();
 
             std::error_code ec;

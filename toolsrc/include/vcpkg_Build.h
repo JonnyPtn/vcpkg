@@ -52,13 +52,15 @@ namespace vcpkg::Build
         SUCCEEDED,
         BUILD_FAILED,
         POST_BUILD_CHECKS_FAILED,
+        FILE_CONFLICTS,
         CASCADED_DUE_TO_MISSING_DEPENDENCIES
     };
 
-    static constexpr std::array<BuildResult, 4> BuildResult_values = {
+    static constexpr std::array<BuildResult, 5> BuildResult_values = {
         BuildResult::SUCCEEDED,
         BuildResult::BUILD_FAILED,
         BuildResult::POST_BUILD_CHECKS_FAILED,
+        BuildResult::FILE_CONFLICTS,
         BuildResult::CASCADED_DUE_TO_MISSING_DEPENDENCIES};
 
     const std::string& to_string(const BuildResult build_result);
@@ -95,14 +97,35 @@ namespace vcpkg::Build
                            const Triplet& triplet,
                            fs::path&& port_dir,
                            const BuildPackageOptions& build_package_options)
-            : src(src), triplet(triplet), port_dir(std::move(port_dir)), build_package_options(build_package_options)
+            : src(src)
+            , scf(nullptr)
+            , triplet(triplet)
+            , port_dir(std::move(port_dir))
+            , build_package_options(build_package_options)
+            , feature_list(nullptr)
+        {
+        }
+
+        BuildPackageConfig(const SourceControlFile& src,
+                           const Triplet& triplet,
+                           fs::path&& port_dir,
+                           const BuildPackageOptions& build_package_options,
+                           const std::unordered_set<std::string>& feature_list)
+            : src(*src.core_paragraph)
+            , scf(&src)
+            , triplet(triplet)
+            , port_dir(std::move(port_dir))
+            , build_package_options(build_package_options)
+            , feature_list(&feature_list)
         {
         }
 
         const SourceParagraph& src;
+        const SourceControlFile* scf;
         const Triplet& triplet;
         fs::path port_dir;
         const BuildPackageOptions& build_package_options;
+        const std::unordered_set<std::string>* feature_list;
     };
 
     ExtendedBuildResult build_package(const VcpkgPaths& paths,
@@ -138,7 +161,7 @@ namespace vcpkg::Build
 
         inline bool is_enabled(BuildPolicy policy) const
         {
-            auto it = m_policies.find(policy);
+            const auto it = m_policies.find(policy);
             if (it != m_policies.cend()) return it->second;
             return false;
         }

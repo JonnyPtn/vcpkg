@@ -1,16 +1,25 @@
 include(vcpkg_common_functions)
-set(VERSION 1_64)
+set(VERSION 1_65)
+set(VERSION2 1.65.0)
 set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/boost_${VERSION}_0)
 
 ######################
 # Acquire and arrange sources
 ######################
 vcpkg_download_distfile(ARCHIVE_FILE
-    URLS "https://sourceforge.net/projects/boost/files/boost/1.64.0/boost_${VERSION}_0.tar.bz2"
-    FILENAME "boost_${VERSION}_0.tar.bz2"
-    SHA512 68477f148f61be617552ef48559c5c2cb90d42264cabd6d5e87215d0d5024b48fca27c4afcfc1f77e490c6220d44fb1abdf0a53703867a2e4132c2857f69fedf
+    URLS "https://sourceforge.net/projects/boost/files/boost/${VERSION2}/boost_${VERSION}_0.7z" "http://dl.bintray.com/boostorg/release/${VERSION2}/source/boost_${VERSION}_0.7z"
+    FILENAME "boost_${VERSION}_0.7z"
+    SHA512 41909136371b3aac53fc06ae92404bd52adde4cbda9337886433d197059105208b67331abf6ca8dc45e4d28679733b5c01fc701cba17516c7134c97785cc5f7e
 )
 vcpkg_extract_source_archive(${ARCHIVE_FILE})
+
+# apply boost combined hotfix
+vcpkg_download_distfile(HOTFIX_PATCH
+    URLS "https://raw.githubusercontent.com/boostorg/website/6c3b630f2c621b78d983e882cefae7ffdf8383b8/patches/1_65_0/boost_1_65_0.patch"
+    FILENAME "boost_1_65_0.patch"
+    SHA512 8f9e654d0ee4d30b38b62b99ebfbbdeccd156c168656e1256b846bd21a3cb36d675396bd48d3f7a18d6cffba80932d40590d12e7ca1a4b51db343b3a0a39a3fd
+)
+vcpkg_apply_patches(SOURCE_PATH ${SOURCE_PATH} PATCHES ${HOTFIX_PATCH})
 
 # apply boost range hotfix
 vcpkg_download_distfile(DIFF
@@ -61,7 +70,7 @@ file(MAKE_DIRECTORY
 if(NOT EXISTS ${SOURCE_PATH}/b2.exe)
     message(STATUS "Bootstrapping")
     vcpkg_execute_required_process(
-        COMMAND "${SOURCE_PATH}/bootstrap.bat"
+        COMMAND "${SOURCE_PATH}/bootstrap.bat" msvc
         WORKING_DIRECTORY ${SOURCE_PATH}
         LOGNAME bootstrap
     )
@@ -108,7 +117,6 @@ if(VCPKG_CMAKE_SYSTEM_NAME MATCHES "WindowsStore")
         # --without-date_time
         # --without-exception
         # --without-serialization
-        # --without-fiber
         # --without-context
         # --without-graph_parallel
         # --without-signals
@@ -129,6 +137,8 @@ if(VCPKG_CMAKE_SYSTEM_NAME MATCHES "WindowsStore")
         --without-program_options # libs\program_options\src\parsers.cpp(194): error C2065: 'environ': undeclared identifier
 
         --without-test
+        --without-fiber
+        --without-stacktrace
         --without-filesystem # libs\filesystem\src\operations.cpp(178): error C2039: 'GetEnvironmentVariableW': is not a member of '`global namespace''
         --without-thread
         --without-iostreams

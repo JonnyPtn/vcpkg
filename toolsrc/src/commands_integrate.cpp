@@ -9,10 +9,10 @@
 namespace vcpkg::Commands::Integrate
 {
     static const std::array<fs::path, 2> old_system_target_files = {
-        System::get_ProgramFiles_32_bit() / "MSBuild/14.0/Microsoft.Common.Targets/ImportBefore/vcpkg.nuget.targets",
-        System::get_ProgramFiles_32_bit() / "MSBuild/14.0/Microsoft.Common.Targets/ImportBefore/vcpkg.system.targets"};
+        System::get_program_files_32_bit() / "MSBuild/14.0/Microsoft.Common.Targets/ImportBefore/vcpkg.nuget.targets",
+        System::get_program_files_32_bit() / "MSBuild/14.0/Microsoft.Common.Targets/ImportBefore/vcpkg.system.targets"};
     static const fs::path system_wide_targets_file =
-        System::get_ProgramFiles_32_bit() / "MSBuild/Microsoft.Cpp/v4.0/V140/ImportBefore/Default/vcpkg.system.props";
+        System::get_program_files_32_bit() / "MSBuild/Microsoft.Cpp/v4.0/V140/ImportBefore/Default/vcpkg.system.props";
 
     static std::string create_appdata_targets_shortcut(const std::string& target_path) noexcept
     {
@@ -317,10 +317,10 @@ With a project open, go to Tools->NuGet Package Manager->Package Manager Console
 
     void perform_and_exit(const VcpkgCmdArguments& args, const VcpkgPaths& paths)
     {
-        static const std::string example = Strings::format("Commands:\n"
+        static const std::string EXAMPLE = Strings::format("Commands:\n"
                                                            "%s",
                                                            INTEGRATE_COMMAND_HELPSTRING);
-        args.check_exact_arg_count(1, example);
+        args.check_exact_arg_count(1, EXAMPLE);
         args.check_and_get_optional_command_arguments({});
 
         if (args.command_arguments[0] == "install")

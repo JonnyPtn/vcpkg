@@ -10,9 +10,9 @@
 #include "vcpkg_System.h"
 #include "vcpkg_Util.h"
 
-using vcpkg::Build::PreBuildInfo;
 using vcpkg::Build::BuildInfo;
 using vcpkg::Build::BuildPolicy;
+using vcpkg::Build::PreBuildInfo;
 
 namespace vcpkg::PostBuildLint
 {
@@ -38,9 +38,9 @@ namespace vcpkg::PostBuildLint
         }
     };
 
-    const std::vector<OutdatedDynamicCrt>& get_outdated_dynamic_crts(const Build::BuildPolicies& policies)
+    const std::vector<OutdatedDynamicCrt>& get_outdated_dynamic_crts()
     {
-        static const std::vector<OutdatedDynamicCrt> v_no_msvcrt = {
+        static const std::vector<OutdatedDynamicCrt> V_NO_MSVCRT = {
             {"msvcp100.dll", R"(msvcp100\.dll)"},
             {"msvcp100d.dll", R"(msvcp100d\.dll)"},
             {"msvcp110.dll", R"(msvcp110\.dll)"},
@@ -59,18 +59,7 @@ namespace vcpkg::PostBuildLint
             {"msvcrt20.dll", R"(msvcrt20\.dll)"},
             {"msvcrt40.dll", R"(msvcrt40\.dll)"}};
 
-        static const std::vector<OutdatedDynamicCrt> v = [&]() {
-            auto ret = v_no_msvcrt;
-            ret.push_back(OutdatedDynamicCrt{"msvcrt.dll", R"(msvcrt\.dll)"});
-            return ret;
-        }();
-
-        if (policies.is_enabled(BuildPolicy::ALLOW_OBSOLETE_MSVCRT))
-        {
-            return v_no_msvcrt;
-        }
-
-        return v;
+        return V_NO_MSVCRT;
     }
 
     static LintStatus check_for_files_in_include_directory(const Files::Filesystem& fs,
@@ -380,12 +369,12 @@ namespace vcpkg::PostBuildLint
                                                  std::vector<FileAndArch> binaries_with_invalid_architecture)
     {
         System::println(System::Color::warning, "The following files were built for an incorrect architecture:");
-        System::println("");
+        System::println();
         for (const FileAndArch& b : binaries_with_invalid_architecture)
         {
             System::println("    %s", b.file.generic_string());
             System::println("Expected %s, but was: %s", expected_architecture, b.actual_arch);
-            System::println("");
+            System::println();
         }
     }
 
@@ -400,7 +389,7 @@ namespace vcpkg::PostBuildLint
                                file.extension() == ".dll",
                                "The file extension was not .dll: %s",
                                file.generic_string());
-            COFFFileReader::DllInfo info = COFFFileReader::read_dll(file);
+            const CoffFileReader::DllInfo info = CoffFileReader::read_dll(file);
             const std::string actual_architecture = get_actual_architecture(info.machine_type);
 
             if (expected_architecture != actual_architecture)
@@ -429,7 +418,7 @@ namespace vcpkg::PostBuildLint
                                file.extension() == ".lib",
                                "The file extension was not .lib: %s",
                                file.generic_string());
-            COFFFileReader::LibInfo info = COFFFileReader::read_lib(file);
+            CoffFileReader::LibInfo info = CoffFileReader::read_lib(file);
 
             // This is zero for folly's debug library
             // TODO: Why?
@@ -498,7 +487,7 @@ namespace vcpkg::PostBuildLint
             System::println(System::Color::warning, "Release binaries were not found");
         }
 
-        System::println("");
+        System::println();
 
         return LintStatus::ERROR_DETECTED;
     }
@@ -591,7 +580,7 @@ namespace vcpkg::PostBuildLint
         return LintStatus::SUCCESS;
     }
 
-    struct BuildType_and_file
+    struct BuildTypeAndFile
     {
         fs::path file;
         BuildType build_type;
@@ -605,7 +594,7 @@ namespace vcpkg::PostBuildLint
         bad_build_types.erase(std::remove(bad_build_types.begin(), bad_build_types.end(), expected_build_type),
                               bad_build_types.end());
 
-        std::vector<BuildType_and_file> libs_with_invalid_crt;
+        std::vector<BuildTypeAndFile> libs_with_invalid_crt;
 
         for (const fs::path& lib : libs)
         {
@@ -632,12 +621,12 @@ namespace vcpkg::PostBuildLint
             System::println(System::Color::warning,
                             "Expected %s crt linkage, but the following libs had invalid crt linkage:",
                             expected_build_type.to_string());
-            System::println("");
-            for (const BuildType_and_file btf : libs_with_invalid_crt)
+            System::println();
+            for (const BuildTypeAndFile btf : libs_with_invalid_crt)
             {
                 System::println("    %s: %s", btf.file.generic_string(), btf.build_type.to_string());
             }
-            System::println("");
+            System::println();
 
             System::println(System::Color::warning,
                             "To inspect the lib files, use:\n    dumpbin.exe /directives mylibfile.lib");
@@ -647,21 +636,21 @@ namespace vcpkg::PostBuildLint
         return LintStatus::SUCCESS;
     }
 
-    struct OutdatedDynamicCrt_and_file
+    struct OutdatedDynamicCrtAndFile
     {
         fs::path file;
         OutdatedDynamicCrt outdated_crt;
 
-        OutdatedDynamicCrt_and_file() = delete;
+        OutdatedDynamicCrtAndFile() = delete;
     };
 
     static LintStatus check_outdated_crt_linkage_of_dlls(const std::vector<fs::path>& dlls,
                                                          const fs::path dumpbin_exe,
                                                          const BuildInfo& build_info)
     {
-        const std::vector<OutdatedDynamicCrt>& outdated_crts = get_outdated_dynamic_crts(build_info.policies);
+        if (build_info.policies.is_enabled(BuildPolicy::ALLOW_OBSOLETE_MSVCRT)) return LintStatus::SUCCESS;
 
-        std::vector<OutdatedDynamicCrt_and_file> dlls_with_outdated_crt;
+        std::vector<OutdatedDynamicCrtAndFile> dlls_with_outdated_crt;
 
         for (const fs::path& dll : dlls)
         {
@@ -673,7 +662,7 @@ namespace vcpkg::PostBuildLint
                                "Running command:\n   %s\n failed",
                                Strings::to_utf8(cmd_line));
 
-            for (const OutdatedDynamicCrt& outdated_crt : outdated_crts)
+            for (const OutdatedDynamicCrt& outdated_crt : get_outdated_dynamic_crts())
             {
                 if (std::regex_search(ec_data.output.cbegin(), ec_data.output.cend(), outdated_crt.regex))
                 {
@@ -686,12 +675,12 @@ namespace vcpkg::PostBuildLint
         if (!dlls_with_outdated_crt.empty())
         {
             System::println(System::Color::warning, "Detected outdated dynamic CRT in the following files:");
-            System::println("");
-            for (const OutdatedDynamicCrt_and_file btf : dlls_with_outdated_crt)
+            System::println();
+            for (const OutdatedDynamicCrtAndFile btf : dlls_with_outdated_crt)
             {
                 System::println("    %s: %s", btf.file.generic_string(), btf.outdated_crt.name);
             }
-            System::println("");
+            System::println();
 
             System::println(System::Color::warning,
                             "To inspect the dll files, use:\n    dumpbin.exe /dependents mydllfile.dll");
