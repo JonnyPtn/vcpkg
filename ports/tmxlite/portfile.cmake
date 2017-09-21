@@ -11,16 +11,15 @@
 #
 
 include(vcpkg_common_functions)
-set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/tmxlite-1.0.1/tmxlite)
-vcpkg_download_distfile(ARCHIVE
-    URLS "https://github.com/fallahn/tmxlite/archive/v1.0.1.zip"
-    FILENAME "v1.0.1.zip"
-    SHA512 47f74571dde78992f658ccec30cbec0eab24c4e9d92f32eeba6e8c03af656ece16647e265fbd0581a984cb5c79a80e0a38a9e19781d5c79e35d3105ec9c4e781
+vcpkg_from_github(OUT_SOURCE_PATH SOURCE_PATH
+    REPO "fallahn/tmxlite"
+    REF "v1.0.1"
+    HEAD_REF master
+    SHA512 d7f05f50e49a03e432d5a5f03be4fbde2a7a149e9aa36061344bbb49bdc9f75630446c5cc6788dcda15a05cf7ece6a96124ffe6db22ee64b60969b5a626013ad
 )
-vcpkg_extract_source_archive(${ARCHIVE})
 
 vcpkg_configure_cmake(
-    SOURCE_PATH ${SOURCE_PATH}
+    SOURCE_PATH ${SOURCE_PATH}/tmxlite
      OPTIONS_DEBUG -DDEBUGGABLE=1
 )
 
@@ -30,5 +29,5 @@ vcpkg_install_cmake()
 file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/debug/include)
 
 # Handle copyright
-file(COPY ${SOURCE_PATH}/../readme.md DESTINATION ${CURRENT_PACKAGES_DIR}/share/tmxlite)
+file(COPY ${SOURCE_PATH}/readme.md DESTINATION ${CURRENT_PACKAGES_DIR}/share/tmxlite)
 file(RENAME ${CURRENT_PACKAGES_DIR}/share/tmxlite/readme.md ${CURRENT_PACKAGES_DIR}/share/tmxlite/copyright)
