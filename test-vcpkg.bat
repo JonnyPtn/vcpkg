@@ -1,0 +1,1 @@
+for /D %%i in (ports/*) do vcpkg install "%%i"
